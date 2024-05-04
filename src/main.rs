@@ -19,7 +19,7 @@ struct Args {
     output: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 struct Userdb {
     key: String,
     ci: i32,
@@ -156,4 +156,57 @@ fn main() -> io::Result<()> {
     println!("Successfully merged files to {}", args.output);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_convert_to_str() {
+        let u = Userdb {
+            key: String::from("a"),
+            ci: 0,
+            c: String::from("b"),
+            d: String::from("c"),
+            t: String::from("d"),
+        };
+        assert_eq!("a\tb c d\n", convert_to_str(&u));
+    }
+    #[test]
+    fn test_parse_userdb() {
+        assert_eq!(
+            parse_userdb("ce shi\t测试\tc=10 d=0.1111 t=12345"),
+            Some(Userdb {
+                key: String::from("ce shi\t测试"),
+                ci: 10,
+                c: String::from("c=10"),
+                d: String::from("d=0.1111"),
+                t: String::from("t=12345"),
+            })
+        );
+        assert_eq!(parse_userdb(""), None);
+        assert_eq!(parse_userdb("ce shi 测试\tc=10 d=0.1111 t=12345"), None);
+        assert_eq!(parse_userdb("ce shi\t测试\tc10 d=0.1111 t=12345"), None);
+        assert_eq!(parse_userdb("ce shi 测试\tc=a d=0.1111 t=12345"), None);
+    }
+    #[test]
+    fn test_parser_line() {
+        let h = FileHeader {
+            header: String::from("aa"),
+            tick: String::from("t=12345"),
+        };
+        let mut m: BTreeMap<String, Userdb> = BTreeMap::new();
+        parser_line(&h, "ce shi\t测试\tc=10 d=0.1111 t=11111", &mut m);
+        assert!(m.contains_key("ce shi\t测试"));
+        let val = m.get("ce shi\t测试");
+        assert!(!val.is_none());
+        if let Some(v) = val {
+            assert_eq!("ce shi\t测试", v.key);
+            assert_eq!(10, v.ci);
+            assert_eq!("c=10", v.c);
+            assert_eq!("d=0.1111", v.d);
+            assert_eq!("t=12345", v.t);
+        }
+    }
 }
